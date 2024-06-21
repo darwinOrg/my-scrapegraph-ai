@@ -63,7 +63,7 @@ class AbstractGraph(ABC):
         >>> result = my_graph.run()
     """
 
-    def __init__(self, prompt: str, config: dict,
+    def __init__(self, prompt: str, config: dict, 
                  source: Optional[str] = None, schema: Optional[BaseModel] = None):
 
         self.prompt = prompt
@@ -102,7 +102,7 @@ class AbstractGraph(ABC):
             "embedder_model": self.embedder_model,
             "cache_path": self.cache_path,
             }
-
+       
         self.set_common_params(common_params, overwrite=True)
 
         # set burr config
@@ -125,7 +125,7 @@ class AbstractGraph(ABC):
 
         for node in self.graph.nodes:
             node.update_config(params, overwrite)
-
+    
     def _create_llm(self, llm_config: dict, chat=False) -> object:
         """
         Create a large language model instance based on the configuration provided.
@@ -145,21 +145,11 @@ class AbstractGraph(ABC):
 
         # If model instance is passed directly instead of the model details
         if "model_instance" in llm_params:
-            instanceParams = llm_params["model_instance"]
-            if instanceParams.model_token is not None:
-                self.model_token = instanceParams.model_token
-            else:
-                self.model_token = 4096
-            return instanceParams
+            self.model_token = llm_params["model_token"]
+            return llm_params["model_instance"]
 
         # Instantiate the language model based on the model name
-        if "gpt-" in llm_params["model"]:
-            try:
-                self.model_token = models_tokens["openai"][llm_params["model"]]
-            except KeyError as exc:
-                raise KeyError("Model not supported") from exc
-            return OpenAI(llm_params)
-        elif "oneapi" in llm_params["model"]:
+        if "oneapi" in llm_params["model"]:
             # take the model after the last dash
             llm_params["model"] = llm_params["model"].split("/")[-1]
             try:
@@ -175,7 +165,12 @@ class AbstractGraph(ABC):
             except KeyError as exc:
                 raise KeyError("Model not supported") from exc
             return AzureOpenAI(llm_params)
-
+        elif "gpt-" in llm_params["model"]:
+            try:
+                self.model_token = models_tokens["openai"][llm_params["model"]]
+            except KeyError as exc:
+                raise KeyError("Model not supported") from exc
+            return OpenAI(llm_params)
         elif "gemini" in llm_params["model"]:
             try:
                 self.model_token = models_tokens["gemini"][llm_params["model"]]
@@ -282,7 +277,7 @@ class AbstractGraph(ABC):
         if isinstance(self.llm_model, OpenAI):
             return OpenAIEmbeddings(api_key=self.llm_model.openai_api_key, base_url=self.llm_model.openai_api_base)
         elif isinstance(self.llm_model, DeepSeek):
-            return OpenAIEmbeddings(api_key=self.llm_model.openai_api_key)
+            return OpenAIEmbeddings(api_key=self.llm_model.openai_api_key)   
 
         elif isinstance(self.llm_model, AzureOpenAIEmbeddings):
             return self.llm_model
