@@ -1,4 +1,5 @@
 import asyncio
+import os
 from typing import Any, AsyncIterator, Iterator, List, Optional
 
 from langchain_community.document_loaders.base import BaseLoader
@@ -75,20 +76,30 @@ class ChromiumLoader(BaseLoader):
         logger.info("Starting scraping...")
         results = ""
         async with async_playwright() as p:
-            browser = await p.chromium.launch(
-                headless=self.headless, proxy=self.proxy, **self.browser_config
-            )
-            try:
-                context = await browser.new_context()
-                await Malenia.apply_stealth(context)
-                page = await context.new_page()
-                await page.goto(url)
-                await page.wait_for_load_state(self.load_state)
-                results = await page.content()  # Simply get the HTML content
-                logger.info("Content scraped")
-            except Exception as e:
-                results = f"Error: {e}"
-            await browser.close()
+            if os.getenv("PLAYWRIGHT_CDP") == "true":
+                browser = await p.chromium.connect_over_cdp('http://localhost:9222')
+                browserContext = browser.contexts[0]
+                try:
+                    page = browserContext.pages[0]
+                    results = await page.content()  # Simply get the HTML content
+                    logger.info("Content scraped")
+                except Exception as e:
+                    results = f"Error: {e}"
+            else:
+                browser = await p.chromium.launch(
+                    headless=self.headless, proxy=self.proxy, **self.browser_config
+                )
+                try:
+                    context = await browser.new_context()
+                    await Malenia.apply_stealth(context)
+                    page = await context.new_page()
+                    await page.goto(url)
+                    await page.wait_for_load_state(self.load_state)
+                    results = await page.content()  # Simply get the HTML content
+                    logger.info("Content scraped")
+                except Exception as e:
+                    results = f"Error: {e}"
+                await browser.close()
         return results
 
     def lazy_load(self) -> Iterator[Document]:
